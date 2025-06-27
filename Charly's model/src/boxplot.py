@@ -7,7 +7,7 @@ import matplotlib.ticker as mtick
 
 
 # Load and clean the dataset using your custom cleaner
-data = DataCleanner("data/data_cleanned.csv")
+data = DataCleanner("Charly's model/data/data_cleanned.csv")
 df = data.load_data_file()
 
 # Filter out unrealistic price and surface entries

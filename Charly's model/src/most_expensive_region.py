@@ -23,7 +23,7 @@ def get_expensive_municipality_data():
             ['region', 'province', 'locality', 'avg_price', 'med_price', 'price_m2', 'count']
     """
     # Chargement et nettoyage des données
-    data = DataCleanner("data/data_cleanned.csv")
+    data = DataCleanner("Charly's model/data/data_cleanned.csv")
     df = data.load_data_file()
 
     # Filtrage des valeurs aberrantes

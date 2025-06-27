@@ -7,7 +7,7 @@ from src.data_cleanner import DataCleanner
 # -------------------- Préparation des données --------------------
 
 def get_least_expensive_data():
-    data = DataCleanner("data/data_cleanned.csv")
+    data = DataCleanner("Charly's model/data/data_cleanned.csv")
     df = data.load_data_file()
 
     df = df[df["price"] > 10000]

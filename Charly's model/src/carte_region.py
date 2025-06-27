@@ -5,7 +5,7 @@ import dash_bootstrap_components as dbc
 from data_cleanner import DataCleanner
 
 # Chargement et préparation des données
-data = DataCleanner("data/data_cleanned.csv")
+data = DataCleanner("Charly's model/data/data_cleanned.csv")
 df = data.load_data_file()
 df = df[
         (df["price"].notna()) & (df["price"] > 10000) & (df["price"] < 1_000_000) &

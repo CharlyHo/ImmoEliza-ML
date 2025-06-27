@@ -20,7 +20,7 @@ def validate_dataset(df):
 # 2. CHARGEMENT ET FILTRAGE DES DONNÉES
 ###############################################################################
 
-data = DataCleanner("data/data_cleanned.csv")
+data = DataCleanner("Charly's model/data/data_cleanned.csv")
 df = data.load_data_file()
 validate_dataset(df)
 

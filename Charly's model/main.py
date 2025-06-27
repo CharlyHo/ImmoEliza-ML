@@ -8,8 +8,8 @@ from src.less_expensive_region import generate_all_least_expensive_charts
 matplotlib.use('TkAgg')
 
 # Initialization and data cleaning
-cleaner = DataCleanner("data/immoweb-dataset.csv")
-cleaner.send_output_file("data/data_cleanned.csv")
+cleaner = DataCleanner("Charly's model/data/immoweb-dataset.csv")
+cleaner.send_output_file("Charly's model/data/data_cleanned.csv")
 
 # Convert -1 values to NaN so they are not included in the correlation
 df = cleaner.to_real_values() 
