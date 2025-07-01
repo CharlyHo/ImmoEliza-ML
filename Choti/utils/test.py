@@ -15,10 +15,13 @@ def test_model(y_test, y_pred) -> Dict[str, Any]:
     mae = mean_absolute_error(y_test, y_pred)
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
 
+    avg_target = np.mean(y_test.values)
+
     result = {
         "R2": r2,
         "MAE": mae,
         "RMSE": rmse,
+        "Average_Target": avg_target,
         "y_test": y_test.values,
         "y_pred": y_pred,
     }
