@@ -19,6 +19,7 @@ def main():
     data_path = "./ml_ready_real_estate_data_soft_filled.csv"
     target = "price"
     output_dir = Path("Choti/output")
+    plot_dir = Path("Choti/plot")
 
     df = load_and_clean_data(data_path)
     print(f"Data loaded successfully.")
@@ -27,10 +28,10 @@ def main():
     print(f"Created {len(test_list)} test configurations")
 
     # mlflow.autolog()
-    results = run_experiments(test_list, df, target, output_dir)
+    results = run_experiments(test_list, df, target, plot_dir)
     results_df = process_and_save_results(results, output_dir)
     display_summary_results(results_df)
-    generate_top_results_plots(results_df)
+    generate_top_results_plots(results_df, output_dir)
 
 
 if __name__ == "__main__":
