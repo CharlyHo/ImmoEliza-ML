@@ -3,10 +3,21 @@ import pandas as pd
 from typing import Tuple
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from utils.feature_engineering import add_lat_lon, add_cluster_loc, add_brussel_distances
+from utils.feature_engineering import (
+    add_lat_lon,
+    add_cluster_loc,
+    add_location_distances,
+)
+
 
 def encode_categorical_features(df, feature_list):
-    categorical_cols = ['province_encoded', 'type_encoded', 'subtype_encoded', 'postCode', 'location_cluster']
+    categorical_cols = [
+        "province_encoded",
+        "type_encoded",
+        "subtype_encoded",
+        "postCode",
+        "location_cluster",
+    ]
     cols_to_encode = [col for col in categorical_cols if col in feature_list]
     if cols_to_encode:
         original_cols = set(df.columns)
@@ -14,7 +25,8 @@ def encode_categorical_features(df, feature_list):
         new_cols = [col for col in df.columns if col not in original_cols]
         feature_list = update_feature_list(feature_list, cols_to_encode, new_cols)
     return df, feature_list
-    
+
+
 def data_preprocessing(df, model, feature_list, target, scale, location):
     df = df.copy()
 
@@ -24,29 +36,34 @@ def data_preprocessing(df, model, feature_list, target, scale, location):
     if "location_cluster" in feature_list:
         df = add_cluster_loc(df)
 
-    if "distance_from_brussels" in feature_list:
-        df = add_brussel_distances(df)
-        
+    if "distance_from_key_location" in feature_list:
+        df = add_location_distances(df)
+
     if model in ["LinearRegression", "Ridge", "Lasso"]:
         df, feature_list = encode_categorical_features(df, feature_list)
-    
+
     X = df[feature_list]
     y = df[target]
-    
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+
     if scale:
         scaler = StandardScaler()
-        X_train = scaler.fit_transform(X_train)
-        X_test = scaler.transform(X_test)  
-        
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+
+        X_train = pd.DataFrame(
+            X_train_scaled, columns=X_train.columns, index=X_train.index
+        )
+        X_test = pd.DataFrame(X_test_scaled, columns=X_test.columns, index=X_test.index)
+
     return X_train, X_test, y_train, y_test
 
 
 def update_feature_list(feature_list, cols_to_encode, new_cols):
     updated_features = [col for col in feature_list if col not in cols_to_encode]
     updated_features.extend(new_cols)
-    
+
     return updated_features
-
-
