@@ -19,4 +19,3 @@ def fill_epc_by_subtype_mode(df: pd.DataFrame) -> pd.DataFrame:
         df["subtype_encoded"].map(epc_mode)
     )
     return df
-
