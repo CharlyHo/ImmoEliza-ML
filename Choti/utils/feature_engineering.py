@@ -14,6 +14,7 @@ def drop_lat_lon(df: pd.DataFrame) -> pd.DataFrame:
     df = df.drop(["lat", "lon"], axis=1)
     return df
 
+
 def add_lat_lon(df: pd.DataFrame) -> pd.DataFrame:
     df["postCode"] = df["postCode"].astype(str)
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
