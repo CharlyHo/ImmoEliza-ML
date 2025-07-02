@@ -12,11 +12,29 @@ def create_test_list(df: pd.DataFrame, target: str) -> List[Dict[Any, Any]]:
     base_features_except_postcode = [
         col for col in base_features if col.lower() != "postcode"
     ]
-    
-    model_list = ["xgb" , "Ridge", "elastic_net", "Lasso", "RandomForest", "LinearRegression", "stacking_ridge_xgb_rf", "voting_ridge_xgb_rf"]
+
+    model_list = [
+        "xgb",
+        "Ridge",
+        "elastic_net",
+        "Lasso",
+        "RandomForest",
+        "LinearRegression",
+        "stacking_ridge_xgb_rf",
+        "voting_ridge_xgb_rf",
+    ]
     scale_list = [False, True]
-    location_list = ["none", "only_lat_lon", "cluster", "distance", "all", "cluster_no_lat_lon", "distance_no_lat_lon", "both_no_lat_lon"]
-    
+    location_list = [
+        "none",
+        "only_lat_lon",
+        "cluster",
+        "distance",
+        "all",
+        "cluster_no_lat_lon",
+        "distance_no_lat_lon",
+        "both_no_lat_lon",
+    ]
+
     # location_list = ["only_lat_lon"]
     # model_list = ["elastic_net"]
     # model_list = ["Ridge"]
@@ -29,8 +47,7 @@ def create_test_list(df: pd.DataFrame, target: str) -> List[Dict[Any, Any]]:
     # top_features_linear = feature_selection(df, 10, target, "LinearRegression")
     # top_features_randomforest = feature_selection(df, 10, target, "RandomForest")
     # top_features_xgb = feature_selection(df, 10, target, "xgb")
-    
-    
+
     # Best features obtained from feature_selection() function
     # add result here to avoid running time-consuming hyperparameter tuning
     top_features_linear = [
@@ -64,7 +81,6 @@ def create_test_list(df: pd.DataFrame, target: str) -> List[Dict[Any, Any]]:
         "hasHeatPump_encoded",
         "hasPhotovoltaicPanels_encoded",
     ]
- 
 
     features_list = {
         "all_feature": base_features,
@@ -77,7 +93,7 @@ def create_test_list(df: pd.DataFrame, target: str) -> List[Dict[Any, Any]]:
 
             features_base = []
             if k == "top_features":
-                if model in ["LinearRegression", "Ridge", "Lasso", "elastic_net" ]:
+                if model in ["LinearRegression", "Ridge", "Lasso", "elastic_net"]:
                     features_base = top_features_linear
                 elif model in ["RandomForest"]:
                     features_base = top_features_randomforest
