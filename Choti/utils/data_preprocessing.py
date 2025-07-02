@@ -7,6 +7,7 @@ from utils.feature_engineering import (
     add_lat_lon,
     add_cluster_loc,
     add_location_distances,
+    drop_lat_lon
 )
 
 
@@ -14,11 +15,13 @@ def encode_categorical_features(df, feature_list):
     categorical_cols = [
         "province_encoded",
         "type_encoded",
-        "subtype_encoded",
+        "subtype_encoded", 
         "postCode",
         "location_cluster",
     ]
+    
     cols_to_encode = [col for col in categorical_cols if col in feature_list]
+
     if cols_to_encode:
         original_cols = set(df.columns)
         df = pd.get_dummies(df, columns=cols_to_encode, drop_first=True)
@@ -38,9 +41,13 @@ def data_preprocessing(df, model, feature_list, target, scale, location):
 
     if "distance_from_key_location" in feature_list:
         df = add_location_distances(df)
-
-    if model in ["LinearRegression", "Ridge", "Lasso"]:
-        df, feature_list = encode_categorical_features(df, feature_list)
+        
+    if "location" in ["cluster_no_lat_lon", "distance_no_lat_lon", "both_no_lat_lon"]:
+        df = drop_lat_lon(df)
+        feature_list.pop("lat", None)
+        feature_list.pop("lon", None) 
+        
+    df, feature_list = encode_categorical_features(df, feature_list)
 
     X = df[feature_list]
     y = df[target]
@@ -67,3 +74,20 @@ def update_feature_list(feature_list, cols_to_encode, new_cols):
     updated_features.extend(new_cols)
 
     return updated_features
+
+
+
+def convert_categorical(X_train, X_test, y_train, y_test):
+    X_train = X_train.copy()
+    X_test = X_test.copy()
+    
+    categorical_columns = X_train.select_dtypes(include=["object"]).columns
+
+    for col in categorical_columns:
+        train_unique = set(X_train[col].dropna().unique())
+        test_unique = set(X_test[col].dropna().unique())
+        all_categories = list(train_unique.union(test_unique))
+        X_train[col] = pd.Categorical(X_train[col], categories=all_categories)
+        X_test[col] = pd.Categorical(X_test[col], categories=all_categories)
+
+    return X_train, X_test, y_train, y_test
