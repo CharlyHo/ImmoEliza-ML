@@ -12,13 +12,13 @@ def display_result(result: dict) -> pd.DataFrame:
     """Display result of each experiment"""
     return pd.DataFrame(
         {
-        "Train R2": [result["train_R2"]],
-        "Train MAE": [result["train_MAE"]],
-        "Train RMSE": [result["train_RMSE"]],
-        "Test R2": [result["test_R2"]],
-        "Test MAE": [result["test_MAE"]],
-        "Test RMSE": [result["test_RMSE"]],
-        "Average Target": [result["average_target"]],
+            "Train R2": [result["train_R2"]],
+            "Train MAE": [result["train_MAE"]],
+            "Train RMSE": [result["train_RMSE"]],
+            "Test R2": [result["test_R2"]],
+            "Test MAE": [result["test_MAE"]],
+            "Test RMSE": [result["test_RMSE"]],
+            "Average Target": [result["average_target"]],
         },
         index=[result["title"]],
     )
@@ -74,6 +74,7 @@ def plot_residuals_top(top_results: pd.DataFrame, output_dir) -> None:
     plt.savefig(save_path)
     plt.close()
 
+
 def generate_top_results_plots(results_df: pd.DataFrame, output_dir) -> None:
     """Generate top performing models"""
     top_results = results_df.head(3)
@@ -107,9 +108,10 @@ def process_and_save_results(
     results_df = pd.DataFrame(results)
     cols = ["title"] + [col for col in results_df.columns if col != "title"]
     results_df = results_df[cols]
-    results_df = results_df.sort_values(by="test_R2", ascending=False).reset_index(drop=True)
+    results_df = results_df.sort_values(by="test_R2", ascending=False).reset_index(
+        drop=True
+    )
     save_path = output_dir / "feature_engineering_results.csv"
 
     results_df.to_csv(save_path, index=False)
     return results_df
-
