@@ -1,10 +1,11 @@
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, VotingRegressor, StackingRegressor
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import train_test_split
 from sklearn.linear_model import Ridge, Lasso, LinearRegression
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import cross_val_score
 from utils.test import test_model
 import mlflow
 from utils.data_preprocessing import data_preprocessing
@@ -13,71 +14,6 @@ from pathlib import Path
 from typing import Dict, Any, List
 import xgboost as xgb
 from sklearn.linear_model import ElasticNet
-
-
-def tune_model(model_name, X_train, y_train) -> dict:
-    """Run hyperparameter tuning once and return best parameters for each model"""
-    model_map = {
-        "xgb": xgb.XGBRegressor(),
-        "Ridge": Ridge(),
-        "Lasso": Lasso(max_iter=5000),
-        "RandomForest": RandomForestRegressor(random_state=42),
-        "LinearRegression": LinearRegression(),
-    }
-
-    param_grids = {
-        "xgb": {
-            "n_estimators": [50, 100, 200],
-            "max_depth": [3, 5, 7],
-            "learning_rate": [0.01, 0.1, 0.2],
-            "colsample_bytree": [0.3, 0.7],
-            "subsample": [0.6, 0.8, 1.0],
-            "reg_alpha": [0, 0.1, 1],
-            "reg_lambda": [1, 1.5, 2],
-        },
-        "Ridge": {"alpha": [0.1, 1.0, 10.0]},
-        "RandomForest": {
-    "n_estimators": [100, 250, 500],
-    'max_depth': [5, 7, 10, 15, None],
-    'min_samples_split': [2, 5, 10, 20],
-    'min_samples_leaf': [1, 3, 5, 10],
-    "max_features": ["sqrt", "log2", None],
-},
-
-        "LinearRegression": {"fit_intercept": [True, False], "positive": [True, False]},
-    }
-
-    model = model_map[model_name]
-    param_grid = param_grids[model_name]
-
-    print(f"Tuning hyperparameters for {model_name}...")
-    # grid_search = GridSearchCV(
-    #     model,
-    #     param_grid,
-    #     cv=3,
-    #     scoring='r2',
-    #     n_jobs=-1,
-    #     verbose=1
-    # )
-    # grid_search.fit(X_train, y_train)
-
-    random_search = RandomizedSearchCV(
-        model,
-        param_grid,
-        n_iter=50, 
-        cv=5,
-        scoring="r2",
-        n_jobs=-1,
-        verbose=1,
-    )
-
-    random_search.fit(X_train, y_train)
-
-    print(f"Best parameters for {model_name}: {random_search.best_params_}")
-    print(f"Best CV score for {model_name}: {random_search.best_score_}")
-
-    return random_search.best_params_
-
 
 def run_experiments(
     test_configs: List[Dict], df: pd.DataFrame, target: str, plot_dir: Path
@@ -88,28 +24,19 @@ def run_experiments(
     for test in test_configs:
         feature_list.update(test["features"])
     feature_list = list(feature_list)
-
-    # Best parameters obtained from tune_model() function
+    
+    # Best parameters obtained from tune_model() function in notebook
     # add result here to avoid running time-consuming hyperparameter tuning
     all_best_params = {
-        "Ridge": {"alpha": 10.0},
+        "Ridge": {'alpha': 0.23070995965139646},
         "LinearRegression": {"fit_intercept": True, "positive": False},
-        # "RandomForest": {'n_estimators': 500, 'min_samples_split': 2, 'max_features': 'sqrt', 'max_depth': None},
-        # "xgb" : {'subsample': 0.8, 'reg_lambda': 2, 'reg_alpha': 1, 'n_estimators': 200, 'max_depth': 3, 'learning_rate': 0.1, 'colsample_bytree': 0.7}
+        "elastic_net" : {'alpha': 0.31313498869576645, 'l1_ratio': 0.31771158458416315},
+        "RandomForest": {'n_estimators': 306, 'max_depth': 5, 'min_samples_split': 17, 'min_samples_leaf': 6, 'max_features': None},
+        "xgb" : { "reg_lambda": 1, "max_depth": 7, "min_child_weight": 5, "learning_rate": 0.1, "n_estimators": 400, "colsample_bytree": 0.3,"reg_alpha": 0.1, "subsample": 0.6},
+        # "xgb": {'n_estimators': 147, 'max_depth': 5, 'learning_rate': 0.1944747457273404, 'colsample_bytree': 0.5691418204270269, 'subsample': 0.9587355115786342, 'reg_alpha': 0.3921344320588479, 'reg_lambda': 1.738191941240725},
+        "Lasso" : {'alpha': 0.20606372000861217}
     }
-    for model_name in models:
-        if model_name in ["xgb", "RandomForest"]:
-            df_tune = df.copy()
-            X_train, X_test, y_train, y_test = data_preprocessing(
-                df_tune,
-                model=model_name,
-                feature_list=feature_list,
-                target=target,
-                scale=True,
-                location="all",
-            )
-            best_param = tune_model(model_name, X_train, y_train)
-            all_best_params[model_name] = best_param
+   
 
     results = []
     for test in test_configs:
@@ -138,7 +65,6 @@ def run_single_experiment(
         for param_name, param_value in params.items():
             mlflow.log_param(param_name, param_value)
 
-        # Prepare data
         df_copy = df.copy()
         X_train, X_test, y_train, y_test = data_preprocessing(
             df_copy,
@@ -149,17 +75,22 @@ def run_single_experiment(
             location=test_config["location"],
         )
 
-        # Train and test model
         result = run_train_test(
             test_config["model"], X_train, X_test, y_train, y_test, all_best_params, test_config["features"], plot_dir=str(plot_dir))
 
-        # Process results
+
         result["title"] = test_config["desc"]
 
         metrics = ["train_R2", "train_MAE", "train_RMSE", "test_R2", "test_MAE", "test_RMSE", "average_target"]
         for metric in metrics:
             if metric in result:
                 mlflow.log_metric(metric, result[metric])
+                
+        train_r2 = result.get("train_R2")
+        test_r2 = result.get("test_R2")
+        if train_r2 is not None and test_r2 is not None:
+            r2_gap = abs(train_r2 - test_r2)
+            mlflow.log_metric("r2_train_test_gap", r2_gap)
 
 
         plot_path = plot_dir / f"{test_config['desc']}.png"
@@ -178,22 +109,23 @@ def run_train_test(
 
     best_params = all_best_params.get(model_name, {})
     if model_name == "Ridge":
-        model = Ridge(random_state=42, **best_params)
+        model = Ridge(**best_params)
     elif model_name == "LinearRegression":
         valid_params = ["fit_intercept", "positive", "copy_X"]
         lr_params = {k: v for k, v in best_params.items() if k in valid_params}
         model = LinearRegression(**lr_params)
+    elif model_name == "Lasso":
+        model = Lasso(max_iter=5000, **best_params)
     elif model_name == "RandomForest":
         model = RandomForestRegressor(random_state=42, **best_params)
     elif model_name == "xgb":
-        X_train, X_test, y_train, y_test = convert_categorical(
-            X_train, X_test, y_train, y_test
-        )
-        model = xgb.XGBRegressor(
-            random_state=42, enable_categorical=True, **best_params
-        )
+        model = xgb.XGBRegressor(random_state=42, **best_params)
     elif model_name == "elastic_net":
-        model = ElasticNet(alpha=0.5, l1_ratio=0.7)
+        model = ElasticNet(**best_params)
+    elif model_name.startswith("voting"):
+        model = create_voting_regressor(all_best_params)
+    elif model_name.startswith("stacking"):
+        model = create_stacking_regressor(all_best_params)
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
@@ -203,9 +135,6 @@ def run_train_test(
     
     train_result = test_model(y_train, y_train_pred)
     test_result = test_model(y_test, y_test_pred)
-    
-    if model_name == "RandomForest":
-        plot_trees(model, features, plot_dir)
 
     result = {
         "model": model_name,
@@ -228,11 +157,43 @@ def run_train_test(
     return result
 
 
-def convert_categorical(X_train, X_test, y_train, y_test):
-    categorical_columns = X_train.select_dtypes(include=["object"]).columns
-    for col in categorical_columns:
-        X_train[col] = X_train[col].astype("category")
-        X_test[col] = X_test[col].astype("category")
-    return X_train, X_test, y_train, y_test
+def create_voting_regressor(all_best_params: Dict = None):
+    """Create voting regressor with base models"""
+    
+  
+    ridge_params = all_best_params.get('Ridge', {}) if all_best_params else {}
+    rf_params = all_best_params.get('RandomForest', {}) if all_best_params else {}
+    xgb_params = all_best_params.get('xgb', {}) if all_best_params else {}
 
+    base_models = [
+        ('ridge', Ridge(random_state=42, **ridge_params)),
+        ('rf', RandomForestRegressor(random_state=42, n_jobs=-1, **rf_params)),
+        ('xgb', xgb.XGBRegressor(random_state=42, **xgb_params))
+    ]
+
+    model = VotingRegressor(estimators=base_models, n_jobs=-1)
+    
+    return model
+
+
+def create_stacking_regressor(all_best_params: Dict = None):
+    """Create voting regressor with base models"""
+    
+  
+    ridge_params = all_best_params.get('Ridge', {}) if all_best_params else {}
+    rf_params = all_best_params.get('RandomForest', {}) if all_best_params else {}
+    xgb_params = all_best_params.get('xgb', {}) if all_best_params else {}
+
+    base_models = [
+        ('rf', RandomForestRegressor(random_state=42, n_jobs=-1, **rf_params)),
+        ('xgb', xgb.XGBRegressor(random_state=42,**xgb_params))
+    ]
+    meta_model = Ridge(random_state=42, **ridge_params)
+
+    model = StackingRegressor(
+    estimators=base_models,
+    final_estimator=meta_model,
+    passthrough=False)
+    
+    return model
 

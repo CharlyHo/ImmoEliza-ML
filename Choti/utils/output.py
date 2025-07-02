@@ -52,28 +52,27 @@ def plot_residuals_top(top_results: pd.DataFrame, output_dir) -> None:
     os.makedirs(output_dir, exist_ok=True)
     save_path = os.path.join(output_dir, "plot_residual.png")
 
-    y_test = []
-    y_pred = []
-    title = []
+    y_test = top_results["y_test"].tolist()
+    y_pred = top_results["y_pred"].tolist()
+    titles = top_results["title"].tolist()
 
-    for idx, row in top_results.iterrows():
-        y_test.append(row["y_test"])
-        y_pred.append(row["y_test_pred"])
-        title.append(row["title"])
+    num_plots = len(top_results)
+    fig, axis = plt.subplots(1, num_plots, figsize=(5 * num_plots, 5))
 
-    fig, axis = plt.subplots(1, 3, figsize=(15, 5))
-    for i in range(3):
+    if num_plots == 1:
+        axis = [axis]
+
+    for i in range(num_plots):
         residuals = y_test[i] - y_pred[i]
         axis[i].scatter(y_pred[i], residuals, c=residuals, cmap="coolwarm", alpha=0.7)
         axis[i].set_xlabel("Predicted Price", fontsize=8)
         axis[i].set_ylabel("Residuals", fontsize=8)
-        axis[i].set_title(f"Residual Plot {title[i]}")
+        axis[i].set_title(f"Residual Plot {titles[i]}")
         axis[i].axhline(y=0, color="r", linestyle="--")
 
     plt.tight_layout()
     plt.savefig(save_path)
     plt.close()
-
 
 def generate_top_results_plots(results_df: pd.DataFrame, output_dir) -> None:
     """Generate top performing models"""
@@ -114,19 +113,3 @@ def process_and_save_results(
     results_df.to_csv(save_path, index=False)
     return results_df
 
-def plot_trees(model, feature_names, plot_dir):
-    
-    os.makedirs(plot_dir, exist_ok=True)
-    save_path = os.path.join(plot_dir, "plot_trees.png")
-    
-    plt.figure(figsize=(20,10))
-    plot_tree(
-            model.estimators_[0],  
-            filled=True,
-            feature_names=feature_names,  
-            max_depth=3,
-            fontsize=10
-        )
-    plt.title("Random Forest Example Tree")
-    plt.savefig(save_path)
-    plt.close()
