@@ -15,6 +15,7 @@ from typing import Dict, Any, List
 import xgboost as xgb
 from sklearn.linear_model import ElasticNet
 
+
 def run_experiments(
     test_configs: List[Dict], df: pd.DataFrame, target: str, plot_dir: Path
 ):
@@ -24,19 +25,33 @@ def run_experiments(
     for test in test_configs:
         feature_list.update(test["features"])
     feature_list = list(feature_list)
-    
+
     # Best parameters obtained from tune_model() function in notebook
     # add result here to avoid running time-consuming hyperparameter tuning
     all_best_params = {
-        "Ridge": {'alpha': 0.23070995965139646},
+        "Ridge": {"alpha": 0.23070995965139646},
         "LinearRegression": {"fit_intercept": True, "positive": False},
-        "elastic_net" : {'alpha': 0.31313498869576645, 'l1_ratio': 0.31771158458416315},
-        "RandomForest": {'n_estimators': 306, 'max_depth': 5, 'min_samples_split': 17, 'min_samples_leaf': 6, 'max_features': None},
-        "xgb" : { "reg_lambda": 1, "max_depth": 7, "min_child_weight": 5, "learning_rate": 0.1, "n_estimators": 400, "colsample_bytree": 0.3,"reg_alpha": 0.1, "subsample": 0.6},
+        "elastic_net": {"alpha": 0.31313498869576645, "l1_ratio": 0.31771158458416315},
+        "RandomForest": {
+            "n_estimators": 306,
+            "max_depth": 5,
+            "min_samples_split": 17,
+            "min_samples_leaf": 6,
+            "max_features": None,
+        },
+        "xgb": {
+            "reg_lambda": 1,
+            "max_depth": 7,
+            "min_child_weight": 5,
+            "learning_rate": 0.1,
+            "n_estimators": 400,
+            "colsample_bytree": 0.3,
+            "reg_alpha": 0.1,
+            "subsample": 0.6,
+        },
         # "xgb": {'n_estimators': 147, 'max_depth': 5, 'learning_rate': 0.1944747457273404, 'colsample_bytree': 0.5691418204270269, 'subsample': 0.9587355115786342, 'reg_alpha': 0.3921344320588479, 'reg_lambda': 1.738191941240725},
-        "Lasso" : {'alpha': 0.20606372000861217}
+        "Lasso": {"alpha": 0.20606372000861217},
     }
-   
 
     results = []
     for test in test_configs:
@@ -76,22 +91,36 @@ def run_single_experiment(
         )
 
         result = run_train_test(
-            test_config["model"], X_train, X_test, y_train, y_test, all_best_params, test_config["features"], plot_dir=str(plot_dir))
-
+            test_config["model"],
+            X_train,
+            X_test,
+            y_train,
+            y_test,
+            all_best_params,
+            test_config["features"],
+            plot_dir=str(plot_dir),
+        )
 
         result["title"] = test_config["desc"]
 
-        metrics = ["train_R2", "train_MAE", "train_RMSE", "test_R2", "test_MAE", "test_RMSE", "average_target"]
+        metrics = [
+            "train_R2",
+            "train_MAE",
+            "train_RMSE",
+            "test_R2",
+            "test_MAE",
+            "test_RMSE",
+            "average_target",
+        ]
         for metric in metrics:
             if metric in result:
                 mlflow.log_metric(metric, result[metric])
-                
+
         train_r2 = result.get("train_R2")
         test_r2 = result.get("test_R2")
         if train_r2 is not None and test_r2 is not None:
             r2_gap = abs(train_r2 - test_r2)
             mlflow.log_metric("r2_train_test_gap", r2_gap)
-
 
         plot_path = plot_dir / f"{test_config['desc']}.png"
         plot_scatter(y_test, result["y_pred"], str(plot_path), result["title"])
@@ -103,7 +132,14 @@ def run_single_experiment(
 
 
 def run_train_test(
-    model_name: str, X_train, X_test, y_train, y_test, all_best_params: Dict[str, dict], features, plot_dir
+    model_name: str,
+    X_train,
+    X_test,
+    y_train,
+    y_test,
+    all_best_params: Dict[str, dict],
+    features,
+    plot_dir,
 ) -> dict:
     """Train model with pre-determined best parameters"""
 
@@ -132,7 +168,7 @@ def run_train_test(
     model.fit(X_train, y_train)
     y_train_pred = model.predict(X_train)
     y_test_pred = model.predict(X_test)
-    
+
     train_result = test_model(y_train, y_train_pred)
     test_result = test_model(y_test, y_test_pred)
 
@@ -159,41 +195,37 @@ def run_train_test(
 
 def create_voting_regressor(all_best_params: Dict = None):
     """Create voting regressor with base models"""
-    
-  
-    ridge_params = all_best_params.get('Ridge', {}) if all_best_params else {}
-    rf_params = all_best_params.get('RandomForest', {}) if all_best_params else {}
-    xgb_params = all_best_params.get('xgb', {}) if all_best_params else {}
+
+    ridge_params = all_best_params.get("Ridge", {}) if all_best_params else {}
+    rf_params = all_best_params.get("RandomForest", {}) if all_best_params else {}
+    xgb_params = all_best_params.get("xgb", {}) if all_best_params else {}
 
     base_models = [
-        ('ridge', Ridge(random_state=42, **ridge_params)),
-        ('rf', RandomForestRegressor(random_state=42, n_jobs=-1, **rf_params)),
-        ('xgb', xgb.XGBRegressor(random_state=42, **xgb_params))
+        ("ridge", Ridge(random_state=42, **ridge_params)),
+        ("rf", RandomForestRegressor(random_state=42, n_jobs=-1, **rf_params)),
+        ("xgb", xgb.XGBRegressor(random_state=42, **xgb_params)),
     ]
 
     model = VotingRegressor(estimators=base_models, n_jobs=-1)
-    
+
     return model
 
 
 def create_stacking_regressor(all_best_params: Dict = None):
     """Create voting regressor with base models"""
-    
-  
-    ridge_params = all_best_params.get('Ridge', {}) if all_best_params else {}
-    rf_params = all_best_params.get('RandomForest', {}) if all_best_params else {}
-    xgb_params = all_best_params.get('xgb', {}) if all_best_params else {}
+
+    ridge_params = all_best_params.get("Ridge", {}) if all_best_params else {}
+    rf_params = all_best_params.get("RandomForest", {}) if all_best_params else {}
+    xgb_params = all_best_params.get("xgb", {}) if all_best_params else {}
 
     base_models = [
-        ('rf', RandomForestRegressor(random_state=42, n_jobs=-1, **rf_params)),
-        ('xgb', xgb.XGBRegressor(random_state=42,**xgb_params))
+        ("rf", RandomForestRegressor(random_state=42, n_jobs=-1, **rf_params)),
+        ("xgb", xgb.XGBRegressor(random_state=42, **xgb_params)),
     ]
     meta_model = Ridge(random_state=42, **ridge_params)
 
     model = StackingRegressor(
-    estimators=base_models,
-    final_estimator=meta_model,
-    passthrough=False)
-    
-    return model
+        estimators=base_models, final_estimator=meta_model, passthrough=False
+    )
 
+    return model
