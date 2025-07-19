@@ -10,6 +10,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import warnings
 import joblib
+from sklearn.decomposition import PCA
+from sklearn.pipeline import Pipeline
+
 warnings.filterwarnings('ignore')
 
 class HousePricePredictor:
@@ -76,58 +79,60 @@ class HousePricePredictor:
 
     
  
-    def basic_xgboost_model(self):
-
-        # using model as .joblib if existing
+    def basic_xgboost_model(self, use_pca=True, n_components=20):
         if os.path.exists(self.save_path):
             print(f"[SKIP] Model file already exists at '{self.save_path}'. Skipping training.")
             self.model = joblib.load(self.save_path)
-            return 
-        
-        """
-        Train a basic XGBoost model with chosen parameters
-        """
+            return
         print("\n" + "="*50)
         print("TRAINING BASIC XGBOOST MODEL")
         print("="*50)
-        
-        # Create and train basic model
-        basic_model = xgb.XGBRegressor(
-            random_state=42,
-            n_estimators=1000,
-            learning_rate=0.1,
-            max_depth=6
+
+        model = xgb.XGBRegressor(
+        random_state=42,
+        n_estimators=1000,
+        learning_rate=0.1,
+        max_depth=6
         )
-        
-        basic_model.fit(self.X_train, self.y_train)
-        
-        # Make predictions
-        y_pred_train = basic_model.predict(self.X_train)
-        y_pred_test = basic_model.predict(self.X_test)
-        
-        # Calculate metrics
+    
+        if use_pca:
+            pipeline = Pipeline([
+            ('scaler', StandardScaler()),
+            ('pca', PCA(n_components=n_components)),
+            ('model', model)
+        ])
+        else:
+            pipeline = Pipeline([
+            ('scaler', StandardScaler()),
+            ('model', model)
+        ])
+
+        pipeline.fit(self.X_train, self.y_train)
+
+        y_pred_train = pipeline.predict(self.X_train)
+        y_pred_test = pipeline.predict(self.X_test)
+
         train_rmse = np.sqrt(mean_squared_error(self.y_train, y_pred_train))
         test_rmse = np.sqrt(mean_squared_error(self.y_test, y_pred_test))
         train_mae = mean_absolute_error(self.y_train, y_pred_train)
         test_mae = mean_absolute_error(self.y_test, y_pred_test)
         train_r2 = r2_score(self.y_train, y_pred_train)
         test_r2 = r2_score(self.y_test, y_pred_test)
-        
-        print(f"Basic XGBoost Results:")
+
+        print(f"Basic XGBoost Results with PCA ({n_components} components):")
         print(f"Train RMSE: {train_rmse:,.2f}")
         print(f"Test RMSE: {test_rmse:,.2f}")
         print(f"Train MAE: {train_mae:,.2f}")
         print(f"Test MAE: {test_mae:,.2f}")
         print(f"Train R²: {train_r2:.4f}")
         print(f"Test R²: {test_r2:.4f}")
-        
-        return basic_model, test_rmse
+
+        return pipeline, test_rmse
+
     
     def objective(self, trial):
-        """
-        Objective function for Optuna opti'
-        """
-        # Suggest hyperparameters
+        n_components = trial.suggest_int('pca_n_components', 10, min(self.X_train.shape[1], 50))
+
         params = {
             'n_estimators': trial.suggest_int('n_estimators', 50, 150),
             'max_depth': trial.suggest_int('max_depth', 3, 6),
@@ -138,19 +143,23 @@ class HousePricePredictor:
             'reg_lambda': trial.suggest_float('reg_lambda', 0, 5),
             'min_child_weight': trial.suggest_int('min_child_weight', 1, 5),
             'random_state': 42
-        }
-        
-        # Create model with suggested parameters
+       }
+
         model = xgb.XGBRegressor(**params)
-        
-        # Perform cross-validation
+
+        pipeline = Pipeline([
+            ('scaler', StandardScaler()),
+            ('pca', PCA(n_components=n_components)),
+            ('model', model)
+        ])
+
         cv_scores = cross_val_score(
-            model, self.X_train, self.y_train, 
+            pipeline, self.X_train, self.y_train,
             cv=5, scoring='neg_root_mean_squared_error'
-        )
-        
-        # Return the mean CV score (Optuna minimizes, so we return negative RMSE)
+     )
+
         return -cv_scores.mean()
+
     
     def optimize_with_optuna(self, n_trials=1500):
         """
@@ -220,7 +229,8 @@ def main():
     predictor.load_and_prepare_data()
     
     # Train basic XGBoost model
-    basic_model, basic_rmse = predictor.basic_xgboost_model()
+    basic_model, basic_rmse = predictor.basic_xgboost_model(use_pca=True, n_components=20)
+
     
     # Optimize with Optuna (+ chosing number of try)
     study, optimized_rmse = predictor.optimize_with_optuna(n_trials=150)
